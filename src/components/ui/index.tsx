@@ -1,3 +1,4 @@
+import { useAppStore } from '@/stores/app'
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2 } from 'lucide-react'
@@ -167,4 +168,15 @@ export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: str
       ))}
     </div>
   )
+}
+
+export function Toaster() {
+  const toasts = useAppStore((s) => s.toasts)
+  const dismiss = useAppStore((s) => s.dismissToast)
+  return <div aria-live="polite" className="fixed bottom-4 right-4 z-[100] flex max-w-sm flex-col gap-2">
+    {toasts.map((toast) => <div key={toast.id} role={toast.kind === 'error' ? 'alert' : 'status'} className="rounded-xl border border-line bg-surface-raised p-4 shadow-lg">
+      <div className="flex items-center gap-3"><strong>{toast.title}</strong><button aria-label="Dismiss notification" onClick={() => dismiss(toast.id)}><X size={16} /></button></div>
+      {toast.detail && <p className="mt-1 text-sm text-ink-dim">{toast.detail}</p>}
+    </div>)}
+  </div>
 }

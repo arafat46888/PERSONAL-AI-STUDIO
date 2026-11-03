@@ -1,7 +1,7 @@
 import { db } from '@/database/db'
 import type { AIModel, Provider, RouterSettings, UsageLog } from '@/types'
-import type { ChatRequestMessage, CompletionParams } from './adapters'
-import { dispatch, ProviderError } from './adapters'
+import type { ChatRequestMessage, CompletionParams } from '../adapters'
+import { dispatch, ProviderError } from '../adapters'
 import { nanoid } from 'nanoid'
 
 export interface RouteResult {
@@ -21,6 +21,14 @@ const stats = { total: 0, failures: 0, recentLatencies: [] as number[], lastSucc
 export function getRouterStats() {
   const avg = stats.recentLatencies.length ? Math.round(stats.recentLatencies.reduce((a, b) => a + b, 0) / stats.recentLatencies.length) : 0
   return { ...stats, averageLatencyMs: avg }
+}
+
+export function clearRouterStats() {
+  stats.total = 0
+  stats.failures = 0
+  stats.recentLatencies = []
+  stats.lastSuccessModel = ''
+  stats.recentFailures = []
 }
 
 /** Classify task heuristically for smart routing. */
@@ -158,9 +166,9 @@ export async function routeAndStream(req: StreamRequest): Promise<RouteResult> {
     } catch (e) {
       clearTimeout(timer)
       req.signal.removeEventListener('abort', onAbort)
-      const err = e as ProviderError
+      const err = e
       const aborted = req.signal.aborted
-      const msg = err instanceof ProviderError ? err.message : err instanceof DOMException && err.name === 'AbortError' ? (aborted ? 'Cancelled by user.' : `Timed out after ${req.router.timeoutMs}ms.`) : String(err?.message ?? 'Network failure')
+      const msg = err instanceof ProviderError ? err.message : err instanceof DOMException && err.name === 'AbortError' ? (aborted ? 'Cancelled by user.' : `Timed out after ${req.router.timeoutMs}ms.`) : (err instanceof Error ? err.message : 'Network failure')
       attempts.push({ modelName: model.name, error: msg })
       stats.total++
       stats.failures++

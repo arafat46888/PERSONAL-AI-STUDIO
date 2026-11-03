@@ -7,7 +7,7 @@ import { Composer, MessageBubble, WelcomeScreen, SelectionToolbar } from './comp
 import { ModelSelector } from '@/features/models/ModelSelector'
 import { useAppStore } from '@/stores/app'
 import { useChatStore } from '@/stores/chat'
-import { useTTS } from '@/services/voice'
+import { useSTT, useTTS } from '@/services/voice'
 import { exportChatMarkdown, exportChatJSON } from '@/services/export'
 import { Search, MoreHorizontal, Share2, Plus, ArrowDown, FolderInput, Archive, Trash2, GitBranch, X, Copy } from 'lucide-react'
 
@@ -186,7 +186,7 @@ export function ChatScreen() {
           {messages.length === 0 ? (
             <EmptyState title="No messages yet" message="Ask anything — responses stream live from your configured provider." />
           ) : (
-            (findQ ? filteredMessages : messages).map((m) => <MessageBubble key={m.id} msg={m} onAction={(a) => void handleAction(a) />)
+            (findQ ? filteredMessages : messages).map((m) => <MessageBubble key={m.id} msg={m} onAction={(a) => void handleAction(a)} />)
           )}
         </div>
         {showScrollBtn && (
@@ -267,7 +267,7 @@ export function VoiceModeBar() {
     if (!transcript.trim()) { toast('info', 'Voice mode', 'No speech captured in this window. Press the mic again.'); phase.current = 'idle'; return }
     phase.current = 'thinking'
     await sendMessage(`[Voice mode] ${transcript.trim()}`)
-    const last = useChatStore.getState().messages.filter((m: Message) => m.role === 'assistant').at(-1)
+    const last = useChatStore.getState().messages.filter((m: Message) => m.role === 'assistant').slice(-1)[0]
     if (last?.content) {
       phase.current = 'speaking'
       tts.speak(last.content, { voiceURI: settings.voice.ttsVoice || undefined, rate: settings.voice.ttsRate, onEnd: () => { phase.current = 'idle' } })

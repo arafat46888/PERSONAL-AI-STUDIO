@@ -4,7 +4,7 @@ import { useAppStore } from '@/stores/app'
 import { Toaster } from '@/components/ui'
 
 export default function App() {
-  const init = useAppStore((s) => s.init)
+  const init = useAppStore((s) => s.loadSettings)
   useEffect(() => { void init() }, [init])
 
   // Apply appearance settings to CSS variables / classes whenever they change
