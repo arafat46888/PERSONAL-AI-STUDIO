@@ -135,7 +135,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const chat: Chat = {
       id: nanoid(), title: 'New chat', pinned: false, archived: false,
       temporary: s.chat.tempChat, createdAt: now, updatedAt: now,
-      modelId: opts?.modelId ?? s.general.defaultModelId || undefined,
+      modelId: opts?.modelId ?? (s.general.defaultModelId || undefined),
       ...(pp ? { projectId: pp } : {}),
       ...opts
     }

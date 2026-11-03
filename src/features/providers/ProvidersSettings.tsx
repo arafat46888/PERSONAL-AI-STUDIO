@@ -182,7 +182,7 @@ export function ProviderModal({ initial, onClose, onSaved }: { initial: Provider
     if (!validate()) return
     if (tested && !testResult?.ok) return
     const p = buildProvider()
-    if (initial) await db.providers.update(initial.id, p)
+    if (initial) await db.providers.put(p)
     else {
       await db.providers.add(p)
       // auto-register the default model so chat works immediately

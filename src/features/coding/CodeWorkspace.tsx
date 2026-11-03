@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { db } from '@/database/db'
+import { workspace } from '@/services/workspace'
 import type { CodeFile, WorkspaceProject } from '@/types'
 import { cx, Button, Input, Select, Modal, Spinner, Badge, EmptyState } from '@/components/ui'
 import { useAppStore } from '@/stores/app'
@@ -44,11 +44,11 @@ export function CodeWorkspacePage() {
   const active = files.find((f) => f.id === activeId) ?? null
 
   useEffect(() => {
-    void db.workspaceProjects.toArray().then(async (ps) => {
+    void workspace.list().then(async (ps) => {
       setWsProjects(ps)
       if (ps.length > 0 && !currentId) {
         setCurrentId(ps[0].id)
-        setFiles(await db.codeFiles.where('projectId').equals(ps[0].id).toArray())
+        setFiles(await workspace.files(ps[0].id))
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,18 +57,13 @@ export function CodeWorkspacePage() {
   const persistFiles = async (next: CodeFile[]) => {
     setFiles(next)
     if (!currentId) return
-    await db.transaction('rw', db.codeFiles, async () => {
-      const existing = await db.codeFiles.where('projectId').equals(currentId).toArray()
-      const toDel = existing.filter((e) => !next.some((n) => n.id === e.id))
-      if (toDel.length) await db.codeFiles.bulkDelete(toDel.map((d) => d.id))
-      await db.codeFiles.bulkPut(next)
-    })
-    await db.workspaceProjects.update(currentId, { updatedAt: Date.now() })
+    await workspace.save(currentId, next)
+
   }
 
   const createProject = async (name: string) => {
     const p: WorkspaceProject = { id: nanoid(), name, files: [], createdAt: Date.now(), updatedAt: Date.now() }
-    await db.workspaceProjects.add(p)
+    await workspace.create(p)
     setWsProjects([...wsProjects, p])
     setCurrentId(p.id)
     const starter: CodeFile[] = [{ id: nanoid(), projectId: p.id, name: 'index.html', language: 'html', content: '<!doctype html>\n<html>\n<head><meta charset="utf-8"><title>Hello</title></head>\n<body>\n<h1>Hello from Personal AI Studio</h1>\n<script>console.log("ready")</script>\n</body>\n</html>', dirty: false }]
@@ -76,21 +71,20 @@ export function CodeWorkspacePage() {
   }
 
   const persistStarter = async (starter: CodeFile[], pid: string) => {
-    await db.codeFiles.bulkAdd(starter)
+    await workspace.save(pid, starter)
     setFiles(starter)
     setActiveId(starter[0]?.id ?? null)
   }
 
   const switchProject = async (id: string) => {
     setCurrentId(id)
-    setFiles(await db.codeFiles.where('projectId').equals(id).toArray())
+    setFiles(await workspace.files(id))
     setActiveId(null)
   }
 
   const deleteProject = async (id: string) => {
     if (!window.confirm('Delete this workspace project and all its files?')) return
-    await db.codeFiles.where('projectId').equals(id).delete()
-    await db.workspaceProjects.delete(id)
+    await workspace.remove(id)
     const ps = wsProjects.filter((p) => p.id !== id)
     setWsProjects(ps)
     if (currentId === id) { setCurrentId(ps[0]?.id ?? null); setFiles([]); setActiveId(null) }
@@ -104,7 +98,7 @@ export function CodeWorkspacePage() {
   const saveAll = async () => {
     if (!currentId) return
     await persistFiles(files.map((f) => ({ ...f, dirty: false })))
-    toast('success', 'Workspace saved locally')
+    toast('success', 'Workspace saved')
   }
 
   const addFile = async (name?: string, content?: string) => {

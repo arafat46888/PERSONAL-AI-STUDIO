@@ -39,10 +39,10 @@ export async function extractFileText(file: File, onProgress?: (p: number) => vo
   if (ext === 'pdf') {
     onProgress?.(10)
     try {
-      const pdfjsLib = await import(/* @vite-ignore */ 'pdfjs-dist/build/pdf.min.mjs')
+      const pdfjsLib = await import('pdfjs-dist')
       const mod = (pdfjsLib as any).default ?? pdfjsLib
       if (mod.GlobalWorkerOptions) {
-        const workerSrc = (await import(/* @vite-ignore */ 'pdfjs-dist/build/pdf.worker.min.mjs?url') as unknown as { default: string }).default
+        const workerSrc = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url') as unknown as { default: string }).default
         mod.GlobalWorkerOptions.workerSrc = workerSrc
       }
       const data = await file.arrayBuffer()
@@ -62,31 +62,29 @@ export async function extractFileText(file: File, onProgress?: (p: number) => vo
   if (ext === 'docx') {
     onProgress?.(30)
     try {
-      const mammoth = await import('mammoth/mammoth.browser' as string).catch(() => null)
-      if (!mammoth) throw new Error('no mammoth')
+      const mammoth = await import('mammoth/mammoth.browser.js')
       const arr = await file.arrayBuffer()
-      const res = await (mammoth as any).extractRawText({ arrayBuffer: arr })
+      const res = await mammoth.extractRawText({ arrayBuffer: arr })
       onProgress?.(100)
       return String(res.value ?? '').slice(0, 200000)
     } catch {
-      throw new Error('DOCX parsing library not installed. Run `npm i mammoth` to enable .docx extraction, or paste the text directly.')
+      throw new Error('Could not read this DOCX file. Try another file or paste the text directly.')
     }
   }
   if (ext === 'xlsx' || ext === 'xls') {
     onProgress?.(30)
     try {
-      const XLSX = await import('xlsx' as string).catch(() => null)
-      if (!XLSX) throw new Error('no xlsx')
+      const XLSX = await import('xlsx')
       const arr = await file.arrayBuffer()
-      const wb = (XLSX as any).read(arr)
+      const wb = XLSX.read(arr)
       let out = ''
       for (const name of wb.SheetNames.slice(0, 10)) {
-        out += `## Sheet: ${name}\n` + (XLSX as any).utils.sheet_to_csv(wb.Sheets[name]) + '\n\n'
+        out += `## Sheet: ${name}\n` + XLSX.utils.sheet_to_csv(wb.Sheets[name]) + '\n\n'
       }
       onProgress?.(100)
       return out.slice(0, 200000)
     } catch {
-      throw new Error('XLSX parsing library not installed. Run `npm i xlsx` (SheetJS CE) to enable spreadsheets, or export CSV and attach that.')
+      throw new Error('Could not read this spreadsheet. Try another file or export it as CSV.')
     }
   }
   return ''

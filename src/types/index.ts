@@ -187,3 +187,20 @@ export const DEFAULT_CAPABILITIES: ModelCapabilities = {
 }
 
 export const SCHEMA_VERSION = 1
+
+export interface WorkspaceProject {
+  id: string
+  name: string
+  files: CodeFile[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CodeFile {
+  id: string
+  projectId: string
+  name: string
+  language: string
+  content: string
+  dirty: boolean
+}

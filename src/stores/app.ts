@@ -26,8 +26,8 @@ function mergeSettings(base: AppSettings, incoming: Partial<AppSettings>): AppSe
   const out = { ...base } as AppSettings
   for (const k of Object.keys(incoming) as (keyof AppSettings)[]) {
     const v = incoming[k]
-    if (v && typeof v === 'object' && !Array.isArray(v)) (out as Record<string, unknown>)[k] = { ...(base[k] as object), ...v }
-    else (out as Record<string, unknown>)[k] = v
+    if (v && typeof v === 'object' && !Array.isArray(v)) (out as unknown as Record<string, unknown>)[k] = { ...(base[k] as object), ...v }
+    else (out as unknown as Record<string, unknown>)[k] = v
   }
   return out
 }

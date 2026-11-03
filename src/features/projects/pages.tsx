@@ -381,7 +381,7 @@ function PromptModal({ initial, onClose, onSaved }: { initial: Prompt | null; on
   const save = async () => {
     if (!title.trim() || !content.trim()) return
     const p: Prompt = { id: initial?.id ?? nanoid(), title: title.trim(), content, category, favorite: initial?.favorite ?? false, variables: extractPromptVariables(content), createdAt: initial?.createdAt ?? Date.now(), updatedAt: Date.now() }
-    if (initial) await db.prompts.update(initial.id, p)
+    if (initial) await db.prompts.put(p)
     else await db.prompts.add(p)
     onSaved()
   }

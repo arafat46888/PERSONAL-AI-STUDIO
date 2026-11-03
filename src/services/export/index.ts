@@ -83,7 +83,7 @@ export async function exportZIP(chatIds?: string[], includeKeys = false) {
   // Human-readable markdown per chat
   if (!chatIds) {
     for (const chat of (payload.data.chats as { id: string; title: string }[])) {
-      const msgs = (payload.data.messages as { role: string; content: string; createdAt: number; modelName?: string }[]).filter((m) => (m as { chatId: string }).chatId === chat.id)
+      const msgs = (payload.data.messages as { chatId: string; role: string; content: string; createdAt: number; modelName?: string }[]).filter((m) => m.chatId === chat.id)
       const md = [`# ${chat.title}`, '', ...msgs.map((m) => `**${m.role}${m.modelName ? ` (${m.modelName})` : ''}** — ${new Date(m.createdAt).toLocaleString()}\n\n${m.content}\n---`)].join('\n')
       zip.file(`chats/${sanitize(chat.title)}-${chat.id.slice(0, 6)}.md`, md)
     }

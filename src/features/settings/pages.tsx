@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { db } from '@/database/db'
-import type { RouterStatsEntry } from '@/types'
 import { cx, Button, Input, Select, Field, Toggle, Modal, Badge, Tabs, ConfirmDialog } from '@/components/ui'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { ModelSelector } from '@/features/models/ModelSelector'
@@ -233,7 +232,7 @@ export function GeneralSettings() {
 export function RouterSettings() {
   const s = useAppStore((st) => st.settings)
   const up = useAppStore((st) => st.updateSettings)
-  const [stats, setStats] = useState<RouterStatsEntry[]>([])
+  const [stats, setStats] = useState(getRouterStats)
   const [fallbackOptions, setFallbackOptions] = useState<{ id: string; name: string }[]>([])
   const reloadStats = useCallback(() => setStats(getRouterStats()), [])
   useEffect(() => { reloadStats(); const iv = setInterval(reloadStats, 4000); void db.models.filter((m) => m.enabled).toArray().then((ms) => setFallbackOptions(ms.map((m) => ({ id: m.id, name: m.name })))); return () => clearInterval(iv) }, [reloadStats])
@@ -283,21 +282,19 @@ export function RouterSettings() {
         </div>
         <div className="mb-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
           <Stat label="Current mode" value={r.mode} />
-          <Stat label="Attempts logged" value={String(stats.length)} />
-          <Stat label="Success rate" value={stats.length ? `${Math.round((stats.filter((x) => x.ok).length / stats.length) * 100)}%` : '—'} />
-          <Stat label="Avg latency" value={avgLatency(stats)} />
+          <Stat label="Attempts logged" value={String(stats.total)} />
+          <Stat label="Success rate" value={stats.total ? `${Math.round(((stats.total - stats.failures) / stats.total) * 100)}%` : '—'} />
+          <Stat label="Avg latency" value={`${stats.averageLatencyMs}ms`} />
         </div>
-        {stats.length === 0 ? <p className="text-xs text-ink-faint">No requests routed yet. Stats appear here after real API calls.</p> : (
+        {stats.total === 0 ? <p className="text-xs text-ink-faint">No requests routed yet. Stats appear here after real API calls.</p> : (
           <div className="max-h-56 overflow-y-auto rounded-lg border border-line">
             <table className="w-full text-[11.5px]">
-              <thead className="sticky top-0 bg-surface-overlay"><tr className="text-left text-ink-faint"><th className="px-2 py-1.5">Time</th><th className="px-2 py-1.5">Model</th><th className="px-2 py-1.5">Task</th><th className="px-2 py-1.5">Latency</th><th className="px-2 py-1.5">Result</th></tr></thead>
-              <tbody>{stats.slice(0, 40).map((x, i) => (
+              <thead className="sticky top-0 bg-surface-overlay"><tr className="text-left text-ink-faint"><th className="px-2 py-1.5">Time</th><th className="px-2 py-1.5">Model</th><th className="px-2 py-1.5">Result</th></tr></thead>
+              <tbody>{stats.recentFailures.map((x, i) => (
                 <tr key={i} className="border-t border-line">
                   <td className="px-2 py-1 whitespace-nowrap">{new Date(x.at).toLocaleTimeString()}</td>
-                  <td className="px-2 py-1">{x.modelName}</td>
-                  <td className="px-2 py-1">{x.task}</td>
-                  <td className="px-2 py-1">{x.ms != null ? `${x.ms}ms` : '—'}</td>
-                  <td className="px-2 py-1">{x.ok ? <span className="text-emerald-400 inline-flex items-center gap-1"><CheckCircle2 size={11} /> ok</span> : <span className="text-red-400 inline-flex items-center gap-1 truncate max-w-[180px]" title={x.error}><XCircle size={11} /> {(x.error ?? '').slice(0, 40)}</span>}</td>
+                  <td className="px-2 py-1">{x.model}</td>
+                  <td className="px-2 py-1">{<span className="text-red-400 inline-flex items-center gap-1 truncate max-w-[180px]" title={x.error}><XCircle size={11} /> {(x.error ?? '').slice(0, 40)}</span>}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -309,11 +306,6 @@ export function RouterSettings() {
   )
 }
 
-function avgLatency(stats: RouterStatsEntry[]) {
-  const ok = stats.filter((s) => s.ok && s.ms != null)
-  if (!ok.length) return '—'
-  return `${Math.round(ok.reduce((a, b) => a + (b.ms ?? 0), 0) / ok.length)}ms`
-}
 function Stat({ label, value }: { label: string; value: string }) {
   return <div className="rounded-lg border border-line bg-surface-overlay px-2.5 py-2"><div className="text-[10px] uppercase tracking-wide text-ink-faint">{label}</div><div className="font-semibold capitalize truncate">{value}</div></div>
 }
@@ -441,13 +433,13 @@ export function DataSettings() {
   const [report, setReport] = useState<ImportReport | null>(null)
   const [confirmWipe, setConfirmWipe] = useState(false)
   const reload = useCallback(async () => {
-    if (navigator.storage?.estimate) setUsage(await navigator.storage.estimate())
+    if (navigator.storage?.estimate) { const estimate = await navigator.storage.estimate(); setUsage({ bytes: estimate.usage ?? 0, quota: estimate.quota ?? 0 }) }
     setCounts({ chats: await db.chats.count(), messages: await db.messages.count(), providers: await db.providers.count(), models: await db.models.count(), memories: await db.memories.count(), projects: await db.projects.count(), prompts: await db.prompts.count(), assistants: await db.assistants.count() })
   }, [])
   useEffect(() => { void reload() }, [reload])
 
   return (
-    <Section title="Data & Storage" desc="Everything lives in IndexedDB on this device. No backend, no account.">
+    <Section title="Data & Storage" desc="Everything lives in IndexedDB on this device. Workspace files are stored separately in the cloud for this browser.">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {Object.entries(counts).map(([k, v]) => <Stat key={k} label={k} value={String(v)} />)}
       </div>
@@ -603,7 +595,7 @@ function VaultControls({ providers, onChanged, toast }: { providers: { id: strin
     for (const p of all) {
       if (!p.apiKey.startsWith('enc:')) continue
       try {
-        const raw = Uint8Array.from(atob(p.apiKey.slice(4), (c) => c.charCodeAt(0)))
+        const raw = Uint8Array.from(atob(p.apiKey.slice(4)), (c) => c.charCodeAt(0))
         const iv = raw.slice(16, 28); const ct = raw.slice(28)
         const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv as BufferSource }, key, ct as BufferSource)
         await db.providers.update(p.id, { apiKey: new TextDecoder().decode(pt) }); okCount++
@@ -650,15 +642,15 @@ export function AdvancedSettings() {
   const up = useAppStore((st) => st.updateSettings)
   const toast = useAppStore((st) => st.toast)
   const [logs, setLogs] = useState<{ id: string; ts: number; level: string; msg: string }[]>([])
-  useEffect(() => { void db.usageLogs.orderBy('ts').reverse().limit(60).toArray().then(setLogs) }, [])
+  useEffect(() => { void db.usageLogs.orderBy('createdAt').reverse().limit(60).toArray().then((rows) => setLogs(rows.map((row) => ({ id: row.id, ts: row.createdAt, level: row.success ? 'info' : 'error', msg: row.error ?? `${row.modelId}: ${row.latencyMs}ms` })))) }, [])
   return (
     <Section title="Advanced" desc="Diagnostics for power users.">
       <Row label="Debug mode" hint="Verbose console logging (secrets are never logged)."><Toggle checked={s.advanced.debugMode} label="Debug mode" onChange={(v) => void up((st) => ({ advanced: { ...st.advanced, debugMode: v } }))} /></Row>
       <Row label="Allow “Save Without Testing”" hint="Adds an explicit untested-provider option in the Add Provider dialog."><Toggle checked={s.advanced.allowSaveUntested} label="Allow save untested" onChange={(v) => void up((st) => ({ advanced: { ...st.advanced, allowSaveUntested: v } }))} /></Row>
       <div className="flex gap-2 flex-wrap">
-        <Button variant="secondary" onClick={() => { toast(navigator.onLine ? 'success' : 'warning', navigator.onLine ? 'Network OK — online' : 'Currently offline'); void db.usageLogs.add({ id: nanoid(), ts: Date.now(), level: 'info', msg: `diagnostics: online=${navigator.onLine}` }) }}><Activity size={14} /> Run network diagnostics</Button>
+        <Button variant="secondary" onClick={() => { toast(navigator.onLine ? 'success' : 'warning', navigator.onLine ? 'Network OK — online' : 'Currently offline') }}><Activity size={14} /> Run network diagnostics</Button>
         <Button variant="secondary" onClick={async () => { const n = await db.usageLogs.count(); toast('info', 'Cache management', `${n} log entries. Service worker cache refresh scheduled.`); if ('caches' in window) { const ks = await caches.keys(); for (const k of ks) await caches.delete(k) } }}><Eraser size={14} /> Purge caches</Button>
-        <Button variant="secondary" onClick={async () => { await db.messages.where('status').equals('streaming').modify({ status: 'stopped' }); await db.vacuum(); toast('success', 'Database maintenance done', 'Stale streaming rows finalized and IndexedDB vacuumed.') }}><Database size={14} /> Database maintenance</Button>
+        <Button variant="secondary" onClick={async () => { await db.messages.filter((m) => m.status === 'streaming').modify({ status: 'stopped' }); toast('success', 'Database maintenance done', 'Stale streaming messages were finalized.') }}><Database size={14} /> Database maintenance</Button>
       </div>
       <div>
         <h4 className="mb-2 text-sm font-semibold">Provider / API logs</h4>
