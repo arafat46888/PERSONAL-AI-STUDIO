@@ -1,0 +1,10 @@
+{
+  "name": "Personal AI Studio",
+  "short_name": "AI Studio",
+  "description": "Your Models. Your Intelligence. Your Workspace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
